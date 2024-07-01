@@ -854,6 +854,7 @@ def run(cmd, logFile=None, indent='    '):
     raise RuntimeError('failed: %s [wd %s]; see logFile %s' % (cmd, os.getcwd(), logFile))
 
 reCoreJar = re.compile('lucene-core-[0-9]+\.[0-9]\.[0-9](?:-SNAPSHOT)?\.jar')
+reCodecsJar = re.compile('lucene-codecs-[0-9]+\.[0-9]\.[0-9](?:-SNAPSHOT)?\.jar')
 
 class RunAlgs:
 
@@ -917,7 +918,7 @@ class RunAlgs:
       w = lambda *xs : [cmd.append(str(x)) for x in xs]
       w('-classpath', classPathToString(getClassPath(index.checkout)))
 
-      jfrOutput = f'{constants.LOGS_DIR}/bench-index-{id}-{index.getName()}.jfr'
+      jfrOutput = f'{constants.LOGS_DIR}/bench-index-{id}-{".".join([index.dataSource.name + checkoutToName(index.checkout)])}.jfr'
 
       # 77: always enable Java Flight Recorder profiling
       w(f'-XX:StartFlightRecording=dumponexit=true,maxsize=250M,settings={constants.BENCH_BASE_DIR}/src/python/profiling.jfc' +
@@ -1012,7 +1013,7 @@ class RunAlgs:
       if index.quantizeKNNGraph:
         w('-quantizeKNNGraph')
 
-      fullLogFile = '%s/%s.%s.log' % (constants.LOGS_DIR, id, index.getName())
+      fullLogFile = '%s/%s.%s.log' % (constants.LOGS_DIR, id, ".".join([index.dataSource.name + checkoutToName(index.checkout)]))
 
       print('    log %s' % fullLogFile)
 
@@ -1672,7 +1673,17 @@ def getAntClassPath(checkout):
   if core_jar_file is None:
     raise RuntimeError('can\'t find core JAR file in %s' % ('%s/lucene/build/core' % path))
 
+  # We use the jar file for codecs to leverage the MR JAR
+  codecs_jar_file = None
+  for filename in os.listdir('%s/lucene/build/codecs' % path):
+    if reCodecsJar.match(filename) is not None:
+      codecs_jar_file = '%s/lucene/build/codecs/%s' % (path, filename)
+      break
+  if codecs_jar_file is None:
+    raise RuntimeError('can\'t find codecs JAR file in %s' % ('%s/lucene/build/codecs' % path))
+
   cp.append(core_jar_file)
+  cp.append(codecs_jar_file)
   cp.append('%s/lucene/build/sandbox/classes/java' % path)
   cp.append('%s/lucene/build/misc/classes/java' % path)
   cp.append('%s/lucene/build/facet/classes/java' % path)
@@ -1719,7 +1730,17 @@ def getClassPath(checkout):
   if core_jar_file is None:
     raise RuntimeError('can\'t find core JAR file in %s' % ('%s/lucene/core/build/libs' % path))
 
+  # We use the jar file for codecs to leverage the MR JAR
+  codecs_jar_file = None
+  for filename in os.listdir('%s/lucene/codecs/build/libs' % path):
+    if reCodecsJar.match(filename) is not None:
+      codecs_jar_file = '%s/lucene/codecs/build/libs/%s' % (path, filename)
+      break
+  if codecs_jar_file is None:
+    raise RuntimeError('can\'t find codecs JAR file in %s' % ('%s/lucene/codecs/build/libs' % path))
+
   cp.append(core_jar_file)
+  cp.append(codecs_jar_file)
   cp.append('%s/lucene/sandbox/build/classes/java/main' % path)
   cp.append('%s/lucene/misc/build/classes/java/main' % path)
   cp.append('%s/lucene/facet/build/classes/java/main' % path)

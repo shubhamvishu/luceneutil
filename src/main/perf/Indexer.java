@@ -41,6 +41,7 @@ import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.shingle.ShingleAnalyzerWrapper;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.codecs.bloom.BloomFilteringPostingsFormat;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.KnnVectorsFormat;
@@ -458,8 +459,11 @@ public final class Indexer {
       final Codec codec = new Lucene99Codec() {
           @Override
           public PostingsFormat getPostingsFormatForField(String field) {
-            return PostingsFormat.forName(field.equals("id") ?
-                                          idFieldPostingsFormat : defaultPostingsFormat);
+            PostingsFormat pf = PostingsFormat.forName(defaultPostingsFormat);
+            if (field.equals("id")) {
+                  return new BloomFilteringPostingsFormat(pf);
+            }
+            return pf;
           }
 
           // Use doc values format at defaults:
